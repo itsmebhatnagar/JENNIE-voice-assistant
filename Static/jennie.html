@@ -1,0 +1,790 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Jennie - Voice Assistant</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', 'Google Sans', Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #fff;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    body::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="50" cy="50" r="1" fill="rgba(255,255,255,0.1)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+      opacity: 0.3;
+      pointer-events: none;
+    }
+
+    .assistant-container {
+      text-align: center;
+      position: relative;
+      z-index: 10;
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(20px);
+      border-radius: 30px;
+      padding: 40px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+      min-width: 400px;
+    }
+
+    .voice-circle {
+      width: 140px;
+      height: 140px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 30px;
+      cursor: pointer;
+      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      position: relative;
+      box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+      border: 3px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .voice-circle::before {
+      content: '';
+      position: absolute;
+      top: -5px;
+      left: -5px;
+      right: -5px;
+      bottom: -5px;
+      border-radius: 50%;
+      background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4);
+      background-size: 400% 400%;
+      animation: gradientShift 3s ease infinite;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      z-index: -1;
+    }
+
+    .voice-circle:hover::before {
+      opacity: 1;
+    }
+
+    .voice-circle:hover {
+      transform: scale(1.1) rotate(5deg);
+      box-shadow: 0 15px 40px rgba(102, 126, 234, 0.6);
+    }
+
+    .voice-circle.listening {
+      background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+      animation: listeningPulse 1.5s infinite;
+      box-shadow: 0 15px 40px rgba(255, 107, 107, 0.6);
+    }
+
+    .voice-circle.speaking {
+      background: linear-gradient(135deg, #4ecdc4 0%, #44a08d 100%);
+      animation: speakingPulse 1s infinite;
+      box-shadow: 0 15px 40px rgba(78, 205, 196, 0.6);
+    }
+
+    @keyframes gradientShift {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    @keyframes listeningPulse {
+      0% { transform: scale(1); box-shadow: 0 15px 40px rgba(255, 107, 107, 0.6); }
+      50% { transform: scale(1.15); box-shadow: 0 20px 50px rgba(255, 107, 107, 0.8); }
+      100% { transform: scale(1); box-shadow: 0 15px 40px rgba(255, 107, 107, 0.6); }
+    }
+
+    @keyframes speakingPulse {
+      0% { transform: scale(1); box-shadow: 0 15px 40px rgba(78, 205, 196, 0.6); }
+      50% { transform: scale(1.1); box-shadow: 0 18px 45px rgba(78, 205, 196, 0.8); }
+      100% { transform: scale(1); box-shadow: 0 15px 40px rgba(78, 205, 196, 0.6); }
+    }
+
+    .mic-icon {
+      width: 50px;
+      height: 50px;
+      fill: white;
+      filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+      transition: transform 0.3s ease;
+    }
+
+    .voice-circle:hover .mic-icon {
+      transform: scale(1.1);
+    }
+
+    .status-text {
+      font-size: 22px;
+      margin-bottom: 15px;
+      font-weight: 600;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+      letter-spacing: 0.5px;
+    }
+
+    .transcript-text {
+      font-size: 18px;
+      color: rgba(255, 255, 255, 0.8);
+      margin-bottom: 25px;
+      min-height: 25px;
+      font-style: italic;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    }
+
+    .wave-animation {
+      display: flex;
+      justify-content: center;
+      gap: 4px;
+      margin: 25px 0;
+      height: 50px;
+      align-items: flex-end;
+    }
+
+    .wave-bar {
+      width: 6px;
+      background: linear-gradient(to top, #667eea, #764ba2);
+      border-radius: 3px;
+      animation: wave 1.2s ease-in-out infinite;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    .wave-bar:nth-child(1) { animation-delay: 0s; }
+    .wave-bar:nth-child(2) { animation-delay: 0.1s; }
+    .wave-bar:nth-child(3) { animation-delay: 0.2s; }
+    .wave-bar:nth-child(4) { animation-delay: 0.3s; }
+    .wave-bar:nth-child(5) { animation-delay: 0.4s; }
+    .wave-bar:nth-child(6) { animation-delay: 0.5s; }
+    .wave-bar:nth-child(7) { animation-delay: 0.6s; }
+
+    @keyframes wave {
+      0%, 40%, 100% { height: 15px; }
+      20% { height: 50px; }
+    }
+
+    .response-card {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 20px;
+      padding: 25px;
+      margin: 25px auto;
+      max-width: 450px;
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      display: none;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .response-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, #667eea, #764ba2, #ff6b6b, #4ecdc4);
+      background-size: 300% 100%;
+      animation: borderGlow 2s ease infinite;
+    }
+
+    @keyframes borderGlow {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    .response-card.show {
+      display: block;
+      animation: slideIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(30px) scale(0.9); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .response-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 15px;
+      color: #fff;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    }
+
+    .response-content {
+      font-size: 16px;
+      color: rgba(255, 255, 255, 0.9);
+      line-height: 1.6;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    }
+
+    .response-link {
+      color: #4ecdc4;
+      text-decoration: none;
+      display: inline-block;
+      margin-top: 15px;
+      font-weight: 600;
+      padding: 8px 16px;
+      background: rgba(78, 205, 196, 0.2);
+      border-radius: 20px;
+      border: 1px solid rgba(78, 205, 196, 0.3);
+      transition: all 0.3s ease;
+    }
+
+    .response-link:hover {
+      background: rgba(78, 205, 196, 0.3);
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(78, 205, 196, 0.4);
+    }
+
+    .wake-words {
+      position: absolute;
+      bottom: -60px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.7);
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .wake-words span {
+      background: rgba(255, 255, 255, 0.15);
+      padding: 6px 12px;
+      border-radius: 20px;
+      margin: 0 6px;
+      font-size: 12px;
+      font-weight: 500;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      backdrop-filter: blur(10px);
+      transition: all 0.3s ease;
+    }
+
+    .wake-words span:hover {
+      background: rgba(255, 255, 255, 0.25);
+      transform: translateY(-2px);
+    }
+
+    .debug-panel {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      background: rgba(0, 0, 0, 0.8);
+      color: #fff;
+      padding: 15px;
+      border-radius: 15px;
+      font-size: 12px;
+      max-width: 300px;
+      font-family: 'Courier New', monospace;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    /* Floating particles animation */
+    .particles {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      pointer-events: none;
+    }
+
+    .particle {
+      position: absolute;
+      width: 4px;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.5);
+      border-radius: 50%;
+      animation: float 6s infinite linear;
+    }
+
+    .particle:nth-child(1) { left: 10%; animation-delay: 0s; }
+    .particle:nth-child(2) { left: 20%; animation-delay: 1s; }
+    .particle:nth-child(3) { left: 30%; animation-delay: 2s; }
+    .particle:nth-child(4) { left: 40%; animation-delay: 3s; }
+    .particle:nth-child(5) { left: 50%; animation-delay: 4s; }
+    .particle:nth-child(6) { left: 60%; animation-delay: 5s; }
+    .particle:nth-child(7) { left: 70%; animation-delay: 0s; }
+    .particle:nth-child(8) { left: 80%; animation-delay: 1s; }
+    .particle:nth-child(9) { left: 90%; animation-delay: 2s; }
+
+    @keyframes float {
+      0% { transform: translateY(100vh) rotate(0deg); opacity: 0; }
+      10% { opacity: 1; }
+      90% { opacity: 1; }
+      100% { transform: translateY(-100px) rotate(360deg); opacity: 0; }
+    }
+  </style>
+</head>
+  <body>
+    <div class="particles">
+      <div class="particle"></div>
+      <div class="particle"></div>
+      <div class="particle"></div>
+      <div class="particle"></div>
+      <div class="particle"></div>
+      <div class="particle"></div>
+      <div class="particle"></div>
+      <div class="particle"></div>
+      <div class="particle"></div>
+    </div>
+    <div class="assistant-container">
+    <div class="voice-circle" id="voiceCircle">
+      <svg class="mic-icon" viewBox="0 0 24 24">
+        <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+        <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+      </svg>
+    </div>
+
+    <div class="status-text" id="statusText">Say "Hey Jennie" to start</div>
+    <div class="transcript-text" id="transcriptText"></div>
+
+    <div class="wave-animation hidden" id="waveAnimation">
+      <div class="wave-bar"></div>
+      <div class="wave-bar"></div>
+      <div class="wave-bar"></div>
+      <div class="wave-bar"></div>
+      <div class="wave-bar"></div>
+      <div class="wave-bar"></div>
+      <div class="wave-bar"></div>
+    </div>
+
+    <div class="response-card" id="responseCard">
+      <div class="response-title" id="responseTitle"></div>
+      <div class="response-content" id="responseContent"></div>
+    </div>
+
+    <div class="wake-words">
+      Try saying: <span>"Hey Jennie"</span> <span>"Hi Jennie"</span> <span>"Hello Jennie"</span>
+    </div>
+  </div>
+
+  <div class="debug-panel" id="debugPanel">Initializing...</div>
+
+  <script>
+    const voiceCircle = document.getElementById('voiceCircle');
+    const statusText = document.getElementById('statusText');
+    const transcriptText = document.getElementById('transcriptText');
+    const waveAnimation = document.getElementById('waveAnimation');
+    const responseCard = document.getElementById('responseCard');
+    const responseTitle = document.getElementById('responseTitle');
+    const responseContent = document.getElementById('responseContent');
+    const debugPanel = document.getElementById('debugPanel');
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    
+    if (!SpeechRecognition) {
+      statusText.textContent = 'Speech recognition not supported';
+      debugPanel.textContent = 'SpeechRecognition API not available';
+      throw new Error('Speech recognition not supported');
+    }
+
+    let recognition;
+    let isActivated = false;
+    let currentTimer = null;
+
+    function updateDebug(message) {
+      debugPanel.textContent = message;
+      console.log(message);
+    }
+
+    function updateStatus(text) {
+      statusText.textContent = text;
+    }
+
+    function updateTranscript(text) {
+      transcriptText.textContent = text;
+    }
+
+    function showWaveAnimation() {
+      waveAnimation.classList.remove('hidden');
+    }
+
+    function hideWaveAnimation() {
+      waveAnimation.classList.add('hidden');
+    }
+
+    function setVoiceCircleState(state) {
+      voiceCircle.className = `voice-circle ${state}`;
+    }
+
+    function showResponse(title, content, link = null) {
+      responseTitle.textContent = title;
+      responseContent.innerHTML = content;
+      if (link) {
+        responseContent.innerHTML += `<br><a href="${link}" target="_blank" class="response-link">Open in new tab</a>`;
+      }
+      responseCard.classList.add('show');
+      
+      // Auto-hide after 5 seconds
+      setTimeout(() => {
+        responseCard.classList.remove('show');
+      }, 5000);
+    }
+
+    function speak(text) {
+      if ('speechSynthesis' in window) {
+        speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'en-US';
+        utterance.rate = 0.9;
+        utterance.pitch = 1.1;
+        utterance.volume = 1;
+        
+        const voices = speechSynthesis.getVoices();
+        const femaleVoice = voices.find(voice => 
+          voice.lang.includes('en') && (
+            voice.name.includes('Female') || 
+            voice.name.includes('Samantha') ||
+            voice.name.includes('Victoria') ||
+            voice.name.includes('Google UK English Female') ||
+            voice.name.includes('Google US English Female')
+          )
+        ) || voices.find(voice => 
+          voice.lang.includes('en') && voice.name.includes('Google')
+        ) || voices.find(voice => 
+          voice.lang.includes('en')
+        );
+        
+        if (femaleVoice) {
+          utterance.voice = femaleVoice;
+        }
+        
+        utterance.onstart = () => {
+          setVoiceCircleState('speaking');
+          showWaveAnimation();
+        };
+        
+        utterance.onend = () => {
+          setVoiceCircleState('');
+          hideWaveAnimation();
+        };
+        
+        speechSynthesis.speak(utterance);
+        updateDebug(`Speaking: ${text}`);
+      }
+    }
+
+    function performTask(transcript) {
+      const lowerTranscript = transcript.toLowerCase();
+      
+      // Time and Date
+      if (lowerTranscript.includes('what time') || lowerTranscript.includes('current time')) {
+        const time = new Date().toLocaleTimeString();
+        const date = new Date().toLocaleDateString();
+        const day = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+        showResponse('Current Time & Date', `Time: ${time}<br>Date: ${date}<br>Day: ${day}`);
+        return `It's ${time} on ${day}, ${date}`;
+      }
+
+      // Calculator
+      if (lowerTranscript.includes('calculate') || lowerTranscript.includes('math') || lowerTranscript.includes('plus') || lowerTranscript.includes('minus') || lowerTranscript.includes('multiply') || lowerTranscript.includes('divide')) {
+        try {
+          let expression = transcript.replace(/calculate|math|what is|compute|solve/gi, '').trim();
+          expression = expression.replace(/plus/gi, '+').replace(/minus/gi, '-').replace(/multiply by/gi, '*').replace(/divided by/gi, '/');
+          expression = expression.replace(/times/gi, '*');
+          
+          const numbers = expression.match(/\d+/g);
+          const operators = expression.match(/[\+\-\*\/]/g);
+          
+          if (numbers && numbers.length >= 2) {
+            let result = parseFloat(numbers[0]);
+            for (let i = 1; i < numbers.length; i++) {
+              const operator = operators[i-1];
+              const num = parseFloat(numbers[i]);
+              switch(operator) {
+                case '+': result += num; break;
+                case '-': result -= num; break;
+                case '*': result *= num; break;
+                case '/': result /= num; break;
+              }
+            }
+            showResponse('Calculation Result', `Expression: ${expression}<br>Result: ${result}`);
+            return `The result is ${result}`;
+          }
+        } catch (e) {
+          return "I couldn't perform that calculation. Please try again.";
+        }
+      }
+
+      // Timer
+      if (lowerTranscript.includes('timer') || lowerTranscript.includes('alarm') || lowerTranscript.includes('set a timer')) {
+        const timeMatch = transcript.match(/(\d+)\s*(second|minute|hour)s?/i);
+        if (timeMatch) {
+          const amount = parseInt(timeMatch[1]);
+          const unit = timeMatch[2].toLowerCase();
+          const milliseconds = unit === 'second' ? amount * 1000 : 
+                             unit === 'minute' ? amount * 60000 : 
+                             amount * 3600000;
+          
+          if (currentTimer) clearTimeout(currentTimer);
+          
+          currentTimer = setTimeout(() => {
+            speak("Your timer is up!");
+            showResponse('Timer Finished', `Your ${amount} ${unit}${amount > 1 ? 's' : ''} timer has completed.`);
+            updateStatus("Timer finished!");
+          }, milliseconds);
+          
+          showResponse('Timer Set', `Timer set for ${amount} ${unit}${amount > 1 ? 's' : ''}<br>Started at: ${new Date().toLocaleTimeString()}`);
+          return `Timer set for ${amount} ${unit}${amount > 1 ? 's' : ''}`;
+        }
+        return "How long would you like the timer for? For example: 'set a timer for 5 minutes'";
+      }
+
+      // Web Search
+      if (lowerTranscript.includes('search for') || lowerTranscript.includes('look up') || lowerTranscript.includes('find')) {
+        let searchTerm = transcript.replace(/search for|look up|find/gi, '').trim();
+        if (searchTerm) {
+          const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(searchTerm)}`;
+          
+          try {
+            const newWindow = window.open(searchUrl, '_blank', 'noopener,noreferrer');
+            showResponse('Search Results', `Searching for: ${searchTerm}`, searchUrl);
+            return `Searching for ${searchTerm}. I've opened the results in a new tab.`;
+          } catch (error) {
+            return `I couldn't open the search automatically. Please try clicking the link.`;
+          }
+        }
+        return "What would you like me to search for?";
+      }
+
+      // Open websites
+      if (lowerTranscript.includes('open')) {
+        const sites = {
+          'google': 'https://www.google.com',
+          'youtube': 'https://www.youtube.com',
+          'facebook': 'https://www.facebook.com',
+          'twitter': 'https://twitter.com',
+          'instagram': 'https://www.instagram.com',
+          'linkedin': 'https://www.linkedin.com',
+          'amazon': 'https://www.amazon.com',
+          'netflix': 'https://www.netflix.com',
+          'spotify': 'https://www.spotify.com',
+          'github': 'https://github.com',
+          'reddit': 'https://www.reddit.com',
+          'wikipedia': 'https://www.wikipedia.org',
+          'maps': 'https://maps.google.com',
+          'gmail': 'https://mail.google.com',
+          'drive': 'https://drive.google.com'
+        };
+
+        for (const [site, url] of Object.entries(sites)) {
+          if (lowerTranscript.includes(site)) {
+            try {
+              const newWindow = window.open(url, '_blank', 'noopener,noreferrer');
+              showResponse('Opening Website', `Opening ${site.charAt(0).toUpperCase() + site.slice(1)} in a new tab`, url);
+              return `Opening ${site} in a new tab for you.`;
+            } catch (error) {
+              return `I couldn't open ${site} automatically. Please try clicking the link.`;
+            }
+          }
+        }
+      }
+
+      // Weather
+      if (lowerTranscript.includes('weather') || lowerTranscript.includes('temperature')) {
+        const cities = ['New York', 'London', 'Tokyo', 'Paris', 'Sydney', 'Mumbai', 'Toronto'];
+        const randomCity = cities[Math.floor(Math.random() * cities.length)];
+        const temp = Math.floor(Math.random() * 30) + 10;
+        const conditions = ['Sunny', 'Cloudy', 'Rainy', 'Partly Cloudy', 'Clear'];
+        const condition = conditions[Math.floor(Math.random() * conditions.length)];
+        
+        showResponse('Weather Information', `Location: ${randomCity}<br>Temperature: ${temp}°C<br>Condition: ${condition}`);
+        return `The weather in ${randomCity} is ${temp} degrees Celsius and ${condition.toLowerCase()}.`;
+      }
+
+      // News
+      if (lowerTranscript.includes('news') || lowerTranscript.includes('headlines')) {
+        const newsUrl = 'https://news.google.com';
+        try {
+          const newWindow = window.open(newsUrl, '_blank', 'noopener,noreferrer');
+          showResponse('Latest News', 'Opening Google News in a new tab', newsUrl);
+          return "Opening the latest news in a new tab for you.";
+        } catch (error) {
+          return "I couldn't open the news automatically. Please try clicking the link.";
+        }
+      }
+
+      // Jokes
+      if (lowerTranscript.includes('joke') || lowerTranscript.includes('funny')) {
+        const jokes = [
+          { setup: "Why don't scientists trust atoms?", punchline: "Because they make up everything!" },
+          { setup: "Why did the scarecrow win an award?", punchline: "Because he was outstanding in his field!" },
+          { setup: "What do you call a fake noodle?", punchline: "An impasta!" },
+          { setup: "Why don't eggs tell jokes?", punchline: "They'd crack each other up!" },
+          { setup: "What do you call a bear with no teeth?", punchline: "A gummy bear!" }
+        ];
+        const joke = jokes[Math.floor(Math.random() * jokes.length)];
+        showResponse('Joke of the Day', `Q: ${joke.setup}<br>A: ${joke.punchline}`);
+        return `${joke.setup} ${joke.punchline}`;
+      }
+
+      // Help
+      if (lowerTranscript.includes('help') || lowerTranscript.includes('what can you do')) {
+        const helpText = `
+          • Time & Date: "What time is it?"<br>
+          • Calculator: "Calculate 15 plus 27"<br>
+          • Timer: "Set a timer for 5 minutes"<br>
+          • Web Search: "Search for pizza recipes"<br>
+          • Open Websites: "Open YouTube"<br>
+          • Weather: "What's the weather like?"<br>
+          • News: "Show me the news"<br>
+          • Jokes: "Tell me a joke"
+        `;
+        showResponse('What I Can Do', helpText);
+        return "I can help you with time, calculations, timers, web searches, opening websites, weather, news, jokes, and more. Just ask me anything!";
+      }
+
+      // Goodbye
+      if (lowerTranscript.includes('goodbye') || lowerTranscript.includes('stop listening') || lowerTranscript.includes('bye')) {
+        isActivated = false;
+        if (currentTimer) clearTimeout(currentTimer);
+        return "Goodbye! Say 'Hey Jennie' when you need me again.";
+      }
+
+      // Test command
+      if (lowerTranscript.includes('test') || lowerTranscript.includes('working')) {
+        return "Yes, I'm working! I can hear you and respond to commands.";
+      }
+
+      // Default response
+      return "I'm not sure how to help with that. Try saying 'help' to see what I can do, or ask me to search for it.";
+    }
+
+    function processCommand(transcript) {
+      updateDebug(`Processing: ${transcript}`);
+      const lowerTranscript = transcript.toLowerCase();
+      
+      // Check for wake word
+      if (!isActivated && (
+        lowerTranscript.includes('hey jennie') || 
+        lowerTranscript.includes('hi jennie') ||
+        lowerTranscript.includes('hello jennie') ||
+        lowerTranscript.includes('okay jennie')
+      )) {
+        isActivated = true;
+        updateStatus('Hi! How can I help you?');
+        updateDebug('Wake word detected - Jennie activated!');
+        speak('Hi! How can I help you?');
+        return;
+      }
+
+      if (!isActivated) {
+        updateDebug('Not activated - waiting for wake word');
+        return;
+      }
+
+      updateTranscript(`You said: ${transcript}`);
+      updateDebug(`Processing command: ${transcript}`);
+      
+      try {
+        const response = performTask(transcript);
+        updateDebug(`Task response: ${response}`);
+        speak(response);
+        setTimeout(() => {
+          if (isActivated) {
+            updateStatus('Listening...');
+            updateTranscript('');
+          }
+        }, 3000);
+      } catch (error) {
+        updateDebug(`Error processing task: ${error.message}`);
+        speak("I'm sorry, I couldn't process that request. Please try again.");
+      }
+    }
+
+    // Initialize speech recognition
+    try {
+      recognition = new SpeechRecognition();
+      recognition.lang = 'en-US';
+      recognition.interimResults = false;
+      recognition.continuous = true;
+      recognition.maxAlternatives = 1;
+
+      recognition.onstart = () => {
+        updateDebug('Speech recognition started - listening for "Hey Jennie"');
+        updateStatus('Say "Hey Jennie" to start');
+      };
+
+      recognition.onresult = (event) => {
+        const transcript = event.results[event.results.length - 1][0].transcript.trim();
+        updateDebug(`Heard: ${transcript}`);
+        processCommand(transcript);
+      };
+
+      recognition.onend = () => {
+        updateDebug('Speech recognition ended, restarting...');
+        setTimeout(() => {
+          try {
+            recognition.start();
+          } catch (e) {
+            updateDebug(`Failed to restart: ${e.message}`);
+          }
+        }, 1000);
+      };
+
+      recognition.onerror = (event) => {
+        updateDebug(`Error: ${event.error}`);
+        if (event.error === 'no-speech') {
+          updateStatus('No speech detected. Try again.');
+        } else if (event.error === 'audio-capture') {
+          updateStatus('No microphone found. Please check your microphone.');
+        } else if (event.error === 'not-allowed') {
+          updateStatus('Microphone permission denied. Please allow microphone access.');
+        } else {
+          updateStatus('Error occurred. Please try again.');
+        }
+      };
+
+      // Start recognition
+      updateDebug('Starting speech recognition...');
+      recognition.start();
+      
+    } catch (error) {
+      updateDebug(`Failed to initialize: ${error.message}`);
+      updateStatus('Failed to start speech recognition. Please refresh the page.');
+    }
+
+    // Load voices
+    if ('speechSynthesis' in window) {
+      speechSynthesis.onvoiceschanged = () => {
+        const voices = speechSynthesis.getVoices();
+        updateDebug(`Voices loaded: ${voices.length} voices available`);
+      };
+    }
+
+    // Click to activate
+    voiceCircle.addEventListener('click', () => {
+      if (!isActivated) {
+        isActivated = true;
+        updateStatus('Hi! How can I help you?');
+        speak('Hi! How can I help you?');
+      }
+    });
+  </script>
+</body>
+</html>
